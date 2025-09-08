@@ -57,6 +57,13 @@ watch(query, () => {
   getNcms()
 })
 
+useHead({
+  title: 'Tabela Fiscal - NCM',
+  meta: [
+    { name: 'description', content: 'Tabela Fiscal' }
+  ]
+})
+
 </script>
 
 <template>
@@ -78,3 +85,4 @@ watch(query, () => {
     </div>
   </UApp>
 </template>
+
