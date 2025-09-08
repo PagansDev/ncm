@@ -20,12 +20,19 @@ interface NCMGroup {
     description: string
 }
 
+interface NCMPositionGroup {
+    posicao: string
+    description: string
+    items: NCMItem[]
+    parentDescription?: string
+}
+
 const props = defineProps<{
     data: NCMItem[]
     loading?: boolean
 }>()
 
-const rowsPerPage = 20
+const rowsPerPage = 100
 const currentPage = ref(1)
 const expandedGroups = ref<Set<string>>(new Set())
 const copiedCode = ref<string | null>(null)
@@ -33,30 +40,74 @@ const copiedCode = ref<string | null>(null)
 
 function getGroupKey(codigo: string): string {
     if (!codigo) return 'Outros'
-    const firstTwo = codigo.toString().substring(0, 2)
+    // Extrai apenas dígitos e usa somente os dois primeiros para formar o grupo
+    const numeric = codigo.toString().replace(/\D/g, '')
+    const firstTwo = numeric.substring(0, 2)
     return firstTwo.padStart(2, '0')
 }
 
 function getGroupDescription(codigo: string, items: NCMItem[]): string {
-    const exactMatch = items.find(item => item.codigo === codigo)
-    if (exactMatch) {
-        return exactMatch.descricao
+    // Tenta encontrar um item cujo código tenha exatamente 2 dígitos que correspondem ao grupo
+    const twoDigitItem = items.find(item => {
+        const onlyDigits = (item.codigo || '').toString().replace(/\D/g, '')
+        return onlyDigits.length === 2 && onlyDigits.padStart(2, '0') === codigo
+    })
+    if (twoDigitItem) {
+        return twoDigitItem.descricao
     }
 
-    const firstItem = items[0]
-    if (firstItem) {
-        return firstItem.descricao
+    // Fallback específico: prioriza 4 dígitos com descrição significativa (não "Outros" e não começando com '-')
+    const digitsLength = (code: string) => (code || '').toString().replace(/\D/g, '').length
+    const isMeaningful = (desc: string) => {
+        const d = (desc || '').trim()
+        return d.length > 0 && !/^\-/.test(d) && !/^outros\b/i.test(d) && !/^\-\-\s*outros/i.test(d)
     }
+
+    const pickByLen = (len: number): NCMItem | undefined => {
+        const candidates = items.filter(i => digitsLength(i.codigo) === len)
+        if (candidates.length === 0) return undefined
+        const meaningful = candidates.find(c => isMeaningful(c.descricao))
+        return meaningful || candidates[0]
+    }
+
+    const pos = pickByLen(4)
+    if (pos) return pos.descricao
+    const subpos = pickByLen(6)
+    if (subpos) return subpos.descricao
+    const ncm = pickByLen(8)
+    if (ncm) return ncm.descricao
 
     return `Grupo ${codigo}`
 }
 
+function getDigitsOnly(code: string): string {
+    return (code || '').toString().replace(/\D/g, '')
+}
+
+function getPositionKey(code: string): string {
+    const digits = getDigitsOnly(code)
+    return digits.substring(0, 4).padEnd(4, '0')
+}
+
+function getDigitsLength(code: string): number {
+    return getDigitsOnly(code).length
+}
+
 const groupedData = computed<NCMGroup[]>(() => {
     const groups: { [key: string]: NCMItem[] } = {}
+    const twoDigitGroupItem: Map<string, NCMItem> = new Map()
 
     if (!props.data || !Array.isArray(props.data)) {
         return []
     }
+
+    props.data.forEach((item: NCMItem) => {
+        const onlyDigits = (item.codigo || '').toString().replace(/\D/g, '')
+        if (onlyDigits.length === 2) {
+            const key = onlyDigits.padStart(2, '0')
+            twoDigitGroupItem.set(key, item)
+        }
+    })
 
     props.data.forEach((item: NCMItem) => {
         const groupKey = getGroupKey(item.codigo)
@@ -70,11 +121,12 @@ const groupedData = computed<NCMGroup[]>(() => {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([grupo, items]) => {
             const isExpanded = !expandedGroups.value.has(`collapsed_${grupo}`)
+            const headerItem = twoDigitGroupItem.get(grupo)
             return {
                 grupo,
                 items: items.sort((a, b) => a.codigo.localeCompare(b.codigo)),
                 expanded: isExpanded,
-                description: getGroupDescription(grupo, items)
+                description: headerItem ? headerItem.descricao : `Grupo ${grupo}`
             }
         })
 })
@@ -86,11 +138,53 @@ const paginatedGroups = computed(() => {
     return groupedData.value.slice(start, end)
 })
 
+function buildPositionGroups(items: NCMItem[], parentDescription?: string): NCMPositionGroup[] {
+    const byPosition: { [key: string]: NCMItem[] } = {}
+    const positionHeader: Map<string, NCMItem | undefined> = new Map()
+
+    items.forEach(item => {
+        const digits = getDigitsOnly(item.codigo)
+        const posKey = getPositionKey(item.codigo)
+        if (!byPosition[posKey]) byPosition[posKey] = []
+        byPosition[posKey].push(item)
+        if (digits.length === 4) positionHeader.set(posKey, item)
+        if (!positionHeader.has(posKey)) positionHeader.set(posKey, undefined)
+    })
+
+    return Object.entries(byPosition)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([posicao, itemsForPos]) => {
+            const header = positionHeader.get(posicao)
+            return {
+                posicao,
+                description: header ? header.descricao : `Posição ${posicao.substring(0, 2)}.${posicao.substring(2, 4)}`,
+                parentDescription,
+                items: itemsForPos.sort((a, b) => a.codigo.localeCompare(b.codigo))
+            }
+        })
+}
+
+function filterPositionItems(items: NCMItem[]): NCMItem[] {
+    const hasHeader = items.some(i => getDigitsLength(i.codigo) === 4)
+    if (!hasHeader) return items
+    return items.filter(i => getDigitsLength(i.codigo) !== 4)
+}
+
 
 const totalPages = computed(() => {
     return Math.max(1, Math.ceil(groupedData.value.length / rowsPerPage))
 })
 
+
+watchEffect(() => {
+    const maxPage = totalPages.value
+    if (currentPage.value > maxPage) {
+        currentPage.value = maxPage
+    }
+    if (currentPage.value < 1) {
+        currentPage.value = 1
+    }
+})
 
 function toggleGroup(grupo: string) {
     const collapsedKey = `collapsed_${grupo}`
@@ -118,13 +212,11 @@ function prevPage() {
     }
 }
 
-// Função para copiar código para a área de transferência
 async function copyToClipboard(codigo: string) {
     try {
         await navigator.clipboard.writeText(codigo)
         showCopyFeedback(codigo)
     } catch (err) {
-        // Fallback para navegadores mais antigos
         const textArea = document.createElement('textarea')
         textArea.value = codigo
         document.body.appendChild(textArea)
@@ -140,12 +232,11 @@ async function copyToClipboard(codigo: string) {
     }
 }
 
-// Feedback visual de cópia
 function showCopyFeedback(codigo: string) {
     copiedCode.value = codigo
     setTimeout(() => {
         copiedCode.value = null
-    }, 2000) // Remove o feedback após 2 segundos
+    }, 2000) 
 }
 
 </script>
@@ -200,7 +291,7 @@ function showCopyFeedback(codigo: string) {
                                     <div class="flex-1">
                                         <div class="font-semibold" v-html="decodeHtmlEntities(group.description)"></div>
                                         <div class="text-xs text-blue-700 dark:text-blue-300 mt-1">{{ group.items.length
-                                        }} itens</div>
+                                            }} itens</div>
                                     </div>
                                 </div>
                             </td>
@@ -208,37 +299,53 @@ function showCopyFeedback(codigo: string) {
 
                         <!-- Itens do grupo (quando expandido) -->
                         <template v-if="group.expanded">
-                            <tr v-for="item in group.items" :key="item.id || item.codigo"
-                                class="hover:bg-gray-50 dark:hover:bg-gray-800">
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <span>{{ item.codigo }}</span>
-                                        <button @click.stop="copyToClipboard(item.codigo)"
-                                            class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all opacity-70 hover:opacity-100"
-                                            :class="{ 'bg-green-100 dark:bg-green-900/30': copiedCode === item.codigo }"
-                                            :title="copiedCode === item.codigo ? 'Copiado!' : `Copiar código ${item.codigo}`">
-                                            <UIcon
-                                                :name="copiedCode === item.codigo ? 'i-lucide-check' : 'i-lucide-copy'"
-                                                class="w-3 h-3 transition-all"
-                                                :class="{ 'text-green-600 dark:text-green-400': copiedCode === item.codigo }" />
-                                        </button>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                    <div class="whitespace-normal break-words"
-                                        v-html="decodeHtmlEntities(item.descricao)"></div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
-                                    formatDateBR(item.data_inicio) }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
-                                    formatDateBR(item.data_fim) }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
-                                    item.tipo_ato_inicio }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
-                                    item.numero_ato_inicio }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
-                                    item.ano_ato_inicio }}</td>
-                            </tr>
+                            <template v-for="posGroup in buildPositionGroups(group.items, group.description)"
+                                :key="posGroup.posicao">
+                                <!-- Cabeçalho da posição -->
+                                <tr class="bg-gray-50 dark:bg-gray-800">
+                                    <td colspan="7"
+                                        class="px-6 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                        <span class="opacity-70">{{ group.grupo }} — <span
+                                                v-html="decodeHtmlEntities(posGroup.parentDescription || group.description)"></span></span>
+                                        <span class="mx-2">/</span>
+                                        {{ posGroup.posicao.substring(0, 2) }}.{{ posGroup.posicao.substring(2, 4) }} —
+                                        <span v-html="decodeHtmlEntities(posGroup.description)"></span>
+                                    </td>
+                                </tr>
+
+                                <!-- Itens da posição (exclui o cabeçalho de 4 dígitos quando presente) -->
+                                <tr v-for="item in filterPositionItems(posGroup.items)" :key="item.id || item.codigo"
+                                    class="hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                        <div class="flex items-center gap-2">
+                                            <span>{{ item.codigo }}</span>
+                                            <button @click.stop="copyToClipboard(item.codigo)"
+                                                class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-all opacity-70 hover:opacity-100"
+                                                :class="{ 'bg-green-100 dark:bg-green-900/30': copiedCode === item.codigo }"
+                                                :title="copiedCode === item.codigo ? 'Copiado!' : `Copiar código ${item.codigo}`">
+                                                <UIcon
+                                                    :name="copiedCode === item.codigo ? 'i-lucide-check' : 'i-lucide-copy'"
+                                                    class="w-3 h-3 transition-all"
+                                                    :class="{ 'text-green-600 dark:text-green-400': copiedCode === item.codigo }" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                        <div class="whitespace-normal break-words"
+                                            v-html="decodeHtmlEntities(item.descricao)"></div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
+                                        formatDateBR(item.data_inicio) }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
+                                        formatDateBR(item.data_fim) }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
+                                        item.tipo_ato_inicio }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
+                                        item.numero_ato_inicio }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{{
+                                        item.ano_ato_inicio }}</td>
+                                </tr>
+                            </template>
                         </template>
                     </template>
                 </tbody>

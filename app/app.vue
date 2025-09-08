@@ -6,7 +6,7 @@ const ncms = ref<any[]>([])
 const loading = ref(true)
 const errorMessage = ref<string | null>(null)
 const page = ref(1)
-const rowsPerPage = 50
+const rowsPerPage = 200
 const pageCount = ref(1)
 const query = ref('')
 
