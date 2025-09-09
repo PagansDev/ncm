@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDateBR, decodeHtmlEntities } from '../utils/format'
+import { useNCMContext } from '../composables/useNCMContext'
 
 interface NCMItem {
     id?: number
@@ -32,6 +33,8 @@ const props = defineProps<{
     loading?: boolean
 }>()
 
+const { addToContext, getChapterDescription, getPositionDescription } = useNCMContext()
+
 const rowsPerPage = 100
 const currentPage = ref(1)
 const expandedGroups = ref<Set<string>>(new Set())
@@ -40,44 +43,13 @@ const copiedCode = ref<string | null>(null)
 
 function getGroupKey(codigo: string): string {
     if (!codigo) return 'Outros'
-    // Extrai apenas dígitos e usa somente os dois primeiros para formar o grupo
     const numeric = codigo.toString().replace(/\D/g, '')
     const firstTwo = numeric.substring(0, 2)
     return firstTwo.padStart(2, '0')
 }
 
 function getGroupDescription(codigo: string, items: NCMItem[]): string {
-    // Tenta encontrar um item cujo código tenha exatamente 2 dígitos que correspondem ao grupo
-    const twoDigitItem = items.find(item => {
-        const onlyDigits = (item.codigo || '').toString().replace(/\D/g, '')
-        return onlyDigits.length === 2 && onlyDigits.padStart(2, '0') === codigo
-    })
-    if (twoDigitItem) {
-        return twoDigitItem.descricao
-    }
-
-    // Fallback específico: prioriza 4 dígitos com descrição significativa (não "Outros" e não começando com '-')
-    const digitsLength = (code: string) => (code || '').toString().replace(/\D/g, '').length
-    const isMeaningful = (desc: string) => {
-        const d = (desc || '').trim()
-        return d.length > 0 && !/^\-/.test(d) && !/^outros\b/i.test(d) && !/^\-\-\s*outros/i.test(d)
-    }
-
-    const pickByLen = (len: number): NCMItem | undefined => {
-        const candidates = items.filter(i => digitsLength(i.codigo) === len)
-        if (candidates.length === 0) return undefined
-        const meaningful = candidates.find(c => isMeaningful(c.descricao))
-        return meaningful || candidates[0]
-    }
-
-    const pos = pickByLen(4)
-    if (pos) return pos.descricao
-    const subpos = pickByLen(6)
-    if (subpos) return subpos.descricao
-    const ncm = pickByLen(8)
-    if (ncm) return ncm.descricao
-
-    return `Grupo ${codigo}`
+    return getChapterDescription(codigo)
 }
 
 function getDigitsOnly(code: string): string {
@@ -95,19 +67,12 @@ function getDigitsLength(code: string): number {
 
 const groupedData = computed<NCMGroup[]>(() => {
     const groups: { [key: string]: NCMItem[] } = {}
-    const twoDigitGroupItem: Map<string, NCMItem> = new Map()
 
     if (!props.data || !Array.isArray(props.data)) {
         return []
     }
 
-    props.data.forEach((item: NCMItem) => {
-        const onlyDigits = (item.codigo || '').toString().replace(/\D/g, '')
-        if (onlyDigits.length === 2) {
-            const key = onlyDigits.padStart(2, '0')
-            twoDigitGroupItem.set(key, item)
-        }
-    })
+    addToContext(props.data)
 
     props.data.forEach((item: NCMItem) => {
         const groupKey = getGroupKey(item.codigo)
@@ -121,12 +86,11 @@ const groupedData = computed<NCMGroup[]>(() => {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([grupo, items]) => {
             const isExpanded = !expandedGroups.value.has(`collapsed_${grupo}`)
-            const headerItem = twoDigitGroupItem.get(grupo)
             return {
                 grupo,
                 items: items.sort((a, b) => a.codigo.localeCompare(b.codigo)),
                 expanded: isExpanded,
-                description: headerItem ? headerItem.descricao : `Grupo ${grupo}`
+                description: getGroupDescription(grupo, items)
             }
         })
 })
@@ -140,24 +104,19 @@ const paginatedGroups = computed(() => {
 
 function buildPositionGroups(items: NCMItem[], parentDescription?: string): NCMPositionGroup[] {
     const byPosition: { [key: string]: NCMItem[] } = {}
-    const positionHeader: Map<string, NCMItem | undefined> = new Map()
 
     items.forEach(item => {
-        const digits = getDigitsOnly(item.codigo)
         const posKey = getPositionKey(item.codigo)
         if (!byPosition[posKey]) byPosition[posKey] = []
         byPosition[posKey].push(item)
-        if (digits.length === 4) positionHeader.set(posKey, item)
-        if (!positionHeader.has(posKey)) positionHeader.set(posKey, undefined)
     })
 
     return Object.entries(byPosition)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([posicao, itemsForPos]) => {
-            const header = positionHeader.get(posicao)
             return {
                 posicao,
-                description: header ? header.descricao : `Posição ${posicao.substring(0, 2)}.${posicao.substring(2, 4)}`,
+                description: getPositionDescription(posicao),
                 parentDescription,
                 items: itemsForPos.sort((a, b) => a.codigo.localeCompare(b.codigo))
             }
@@ -236,7 +195,7 @@ function showCopyFeedback(codigo: string) {
     copiedCode.value = codigo
     setTimeout(() => {
         copiedCode.value = null
-    }, 2000) 
+    }, 2000)
 }
 
 </script>
