@@ -1,6 +1,4 @@
-
 <script setup lang="ts">
-
 </script>
 
 <template>
@@ -16,6 +14,7 @@
     left-0
     w-[100dvw]
     h-24
+    bg-emerald-500
     ">
         <img src="/TFlogo.png" alt="Tabela Fiscal Logo" class="h-20 w-auto rounded-2xl" />
         <div class="flex flex-row gap-2 items-center">
@@ -25,8 +24,9 @@
             </a>
         </div>
 
-        <ColorModeButton />
+        <div class="flex items-center gap-3">
+            <ColorModeButton />
+        </div>
 
     </div>
 </template>
-

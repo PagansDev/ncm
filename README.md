@@ -15,7 +15,10 @@ Este projeto tem como objetivo facilitar a localização e consulta de informaç
 ### NCM (Nomenclatura Comum do Mercosul)
 
 - **Busca avançada**: Pesquisa por código ou descrição com suporte a acentos e case-insensitive
-- **Agrupamento inteligente**: Organização por códigos de 2 dígitos com grupos expansíveis
+- **Agrupamento hierárquico**: Organização por capítulos (2 dígitos) e posições (4 dígitos) conforme estrutura oficial NCM
+- **Contexto preservado**: Sistema inteligente que mantém nomes de grupos mesmo em buscas filtradas
+- **Cache otimizado**: Persistência do contexto no IndexedDB para carregamento instantâneo
+- **Subgrupos contextuais**: Posições agrupadas dentro de capítulos com referência hierárquica
 - **Formatação brasileira**: Datas no padrão DD/MM/YYYY
 - **Renderização HTML**: Suporte completo a conteúdo HTML nas descrições
 - **Cópia rápida**: Botão para copiar códigos NCM com feedback visual
@@ -27,6 +30,7 @@ Este projeto tem como objetivo facilitar a localização e consulta de informaç
 - **Frontend**: Nuxt 3, Vue 3, TypeScript
 - **UI**: Nuxt UI, Tailwind CSS, componentes customizados
 - **Backend**: Supabase
+- **Cache**: IndexedDB para persistência local
 - **Deploy**: Vercel
 
 ## Instalação e Execução
@@ -68,6 +72,7 @@ bun install
 SUPABASE_URL=sua_url_do_supabase
 SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
 ```
+
 - faça o download do json oficial do governo. Faça um script para subir no supabase (não esqueça de por no schema public)
 
 4. **Execute o servidor de desenvolvimento**
@@ -94,9 +99,13 @@ A aplicação estará disponível em `http://localhost:3000`
 app/
 ├── components/          # Componentes Vue reutilizáveis
 │   ├── AppHeader.vue   # Cabeçalho com logo e navegação
-│   ├── AppTable.vue    # Tabela customizada com agrupamento
+│   ├── AppTable.vue    # Tabela customizada com agrupamento hierárquico
 │   ├── SearchBar.vue   # Barra de pesquisa
 │   └── SimplePagination.vue # Paginação customizada
+├── composables/        # Composables Vue para lógica reutilizável
+│   ├── useNCMContext.ts    # Gerenciamento do contexto NCM
+│   ├── useNCMData.ts       # Gerenciamento de dados NCM
+│   └── useNCMStorage.ts    # Persistência com IndexedDB
 ├── utils/              # Utilitários
 │   └── format.ts       # Formatação de datas e HTML
 └── app.vue            # Componente principal
@@ -105,14 +114,30 @@ app/
 ## Como Usar
 
 1. **Busca simples**: Digite o código NCM ou parte da descrição
-2. **Navegação**: Use os grupos expansíveis para explorar categorias
-3. **Cópia**: Clique no ícone ao lado do código para copiá-lo
-4. **Paginação**: Navegue entre as páginas usando os controles inferiores
+2. **Navegação hierárquica**:
+   - Capítulos (2 dígitos): Grupos principais expansíveis
+   - Posições (4 dígitos): Subgrupos dentro de cada capítulo
+   - Itens (6/8 dígitos): Códigos específicos com descrições detalhadas
+4. **Cópia**: Clique no ícone ao lado do código para copiá-lo
+5. **Paginação**: Navegue entre as páginas usando os controles inferiores
+6. **Cache automático**: O contexto é salvo localmente para carregamento instantâneo
 
 ## Dados
 
 O sistema utiliza dados oficiais da NCM(2025), garantindo precisão e confiabilidade para consultas fiscais.
 
+### Estrutura Hierárquica NCM
+
+- **Capítulos (2 dígitos)**: Categorias principais (ex: 03 - Peixes e crustáceos)
+- **Posições (4 dígitos)**: Subcategorias (ex: 03.03 - Peixes vivos)
+- **Subposições (6 dígitos)**: Classificações específicas
+- **Códigos NCM (8 dígitos)**: Classificação final para importação/exportação
+
+### Performance
+
+- **Cache inteligente**: Contexto salvo no IndexedDB para carregamento instantâneo
+- **Atualização automática**: Contexto expira após 7 dias e é recarregado automaticamente
+- **Otimização de busca**: Apenas dados necessários são carregados por página
 
 ## Contribuição
 
