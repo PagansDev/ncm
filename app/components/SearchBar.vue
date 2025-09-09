@@ -1,9 +1,10 @@
 <template>
 
-    <div class="flex flex-col gap-4  h-28 mt-30">
-        <p class="text-sm text-center bold">
+    <div class="flex flex-col gap-4 mt-8 h-28">
+
+        <h2 class="text-sm text-center bold">
             Pesquise pelo código <strong>NCM</strong> ou <strong> descrição </strong> do produto
-        </p>
+        </h2>
         <div class="flex flex-row gap-2 w-full">
             <UButton icon="i-lucide-search" color="neutral" variant="ghost" />
             <UInput v-model="search" placeholder="Pesquisar" class="w-full" />

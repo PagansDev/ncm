@@ -99,7 +99,7 @@ useHead({
 <template>
   <UApp class="flex flex-col items-center justify-center h-screen">
     <AppHeader />
-    <div class="flex flex-row gap-4 w-[100vw]">
+    <div class="flex flex-row gap-4 w-full">
       <GoogleAdContainer class="basis-2/10" />
       <div class=" flex flex-col gap-4 basis-6/10">
         <SearchBar v-model:query="query" />
