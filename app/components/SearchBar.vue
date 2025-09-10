@@ -45,10 +45,25 @@ watch(search, (val) => {
 
     if (onlyDigits && !hasDot) {
         const formatted = formatNCMCodeByPattern(raw, '4-2-2')
+
         if (formatted && formatted !== raw) {
             search.value = formatted
             emit('update:query', formatted)
             return
+        }
+    }
+
+    if (hasDot && !onlyDigits) {
+        const digitsOnly = raw.replace(/\D/g, '')
+
+        if (digitsOnly.length >= 6) { 
+            const formatted = formatNCMCodeByPattern(digitsOnly, '4-2-2')
+
+            if (formatted && formatted !== raw) {
+                search.value = formatted
+                emit('update:query', formatted)
+                return
+            }
         }
     }
 
