@@ -97,6 +97,10 @@ useHead({
         { name: 'author', content: 'PagansDev' }
     ]
 })
+
+definePageMeta({
+    name: 'Tabela NCM'
+})
 </script>
 
 <template>
