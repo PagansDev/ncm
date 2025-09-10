@@ -18,6 +18,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatNCMCodeByPattern } from '../utils/format'
 
 const search = ref('')
 
@@ -25,6 +26,21 @@ const emit = defineEmits<{
     (e: 'update:query', value: string): void
 }>()
 
-watch(search, (val) => emit('update:query', val))
+watch(search, (val) => {
+    const raw = (val || '').toString()
+    const onlyDigits = /^\d+$/.test(raw)
+    const hasDot = /\./.test(raw)
+   
+    if (onlyDigits && !hasDot) {
+        const formatted = formatNCMCodeByPattern(raw, '4-2-2')
+        if (formatted && formatted !== raw) {
+            search.value = formatted
+            emit('update:query', formatted)
+            return
+        }
+    }
+
+    emit('update:query', val)
+})
 
 </script>
