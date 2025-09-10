@@ -7,6 +7,8 @@
         </h2>
         <div class="flex flex-row gap-2 w-full">
             <UButton icon="i-lucide-search" color="neutral" variant="ghost" />
+            <UButton v-if="(search || '').length" icon="i-lucide-x" size="xs" variant="ghost" color="secondary"
+                @click="() => { search = ''; emit('update:query', '') }" aria-label="Limpar pesquisa" />
             <UInput v-model="search" placeholder="Pesquisar" class="w-full" />
         </div>
         <div class="flex flex-row gap-2 w-full justify-center items-center mb-4 text-emerald-500 animate-bounce">
@@ -20,17 +22,27 @@
 <script setup lang="ts">
 import { formatNCMCodeByPattern } from '../utils/format'
 
-const search = ref('')
+const props = defineProps<{
+    query?: string
+}>()
+
+const search = ref(props.query || '')
 
 const emit = defineEmits<{
     (e: 'update:query', value: string): void
 }>()
 
+watch(() => props.query, (val) => {
+    if (val !== undefined && val !== search.value) {
+        search.value = val || ''
+    }
+})
+
 watch(search, (val) => {
     const raw = (val || '').toString()
     const onlyDigits = /^\d+$/.test(raw)
     const hasDot = /\./.test(raw)
-   
+
     if (onlyDigits && !hasDot) {
         const formatted = formatNCMCodeByPattern(raw, '4-2-2')
         if (formatted && formatted !== raw) {
