@@ -18,12 +18,17 @@ useHead({
         { name: 'author', content: 'PagansDev' }
     ]
 })
+
+definePageMeta({
+    name: 'Início'
+})
 </script>
 
 <template>
     <div class="w-full max-w-6xl mx-auto px-4 py-10">
         <section class="text-center space-y-4 mb-10 flex flex-col items-center justify-center">
-            <img src="/TFlogo.png" alt="Tabela Fiscal Logo" class="h-[20rem] w-auto rounded-2xl border-2 border-gray-200 dark:border-gray-800" />
+            <img src="/TFlogo.png" alt="Tabela Fiscal Logo"
+                class="h-[20rem] w-auto rounded-2xl border-2 border-gray-200 dark:border-gray-800" />
             <p class="text-gray-600 dark:text-gray-400">
                 Encontre rapidamente códigos e descrições das tabelas fiscais brasileiras.
             </p>
