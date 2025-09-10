@@ -8,7 +8,7 @@ Este projeto tem como objetivo facilitar a localização e consulta de informaç
 
 ## Acesso Online
 
-🌐 **Aplicação em produção**: [https://tabela-fiscal.vercel.app/](https://tabela-fiscal.vercel.app/)
+🌐 **Aplicação em produção**: [https://tabelafiscal.site/](https://tabelafiscal.site/)
 
 ## Funcionalidades
 
