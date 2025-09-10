@@ -61,7 +61,7 @@ export function formatNCMCodeByPattern(
     const a = digits.slice(0, 4);
     const b = digits.slice(4, 6);
     const c = digits.slice(6, 8);
-    return [a, b, c].filter(Boolean).join('.');
+    return [a, b, c].filter((part) => part.length > 0).join('.');
   }
 
   // pattern === '2-2-2-2'
@@ -69,7 +69,7 @@ export function formatNCMCodeByPattern(
   const p2 = digits.slice(2, 4);
   const p3 = digits.slice(4, 6);
   const p4 = digits.slice(6, 8);
-  return [p1, p2, p3, p4].filter(Boolean).join('.');
+  return [p1, p2, p3, p4].filter((part) => part.length > 0).join('.');
 }
 
 /**

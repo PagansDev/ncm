@@ -24,6 +24,7 @@ async function getNcms() {
     const toIndex = fromIndex + rowsPerPage - 1
     const normalized = normalizeForSearch(query.value)
     const filter = normalized ? `.or(codigo.ilike.%${normalized}%,descricao.ilike.%${normalized}%)` : ''
+
     const [{ count: total, error: countError }, { data, error }] = await Promise.all([
         supabase
             .from('tabela_ncm')
